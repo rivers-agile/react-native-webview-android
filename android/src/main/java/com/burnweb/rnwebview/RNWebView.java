@@ -13,6 +13,9 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.JavascriptInterface;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
+import android.support.annotation.Nullable;
 
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.uimanager.ThemedReactContext;
@@ -82,7 +85,13 @@ class RNWebView extends WebView implements LifecycleEventListener {
         }
     }
 
-    public RNWebView(RNWebViewManager viewManager, ThemedReactContext reactContext) {
+    interface CheckoutJavaScriptInterface {
+      public void onCheckoutCancel();
+      public void onSessionExpired();
+      public void onCheckoutComplete();
+    }
+
+    public RNWebView(RNWebViewManager viewManager, final ThemedReactContext reactContext) {
         super(reactContext);
 
         mViewManager = viewManager;
@@ -106,6 +115,28 @@ class RNWebView extends WebView implements LifecycleEventListener {
 
         this.setWebViewClient(new EventWebClient());
         this.setWebChromeClient(getCustomClient());
+        this.addJavascriptInterface(new CheckoutJavaScriptInterface() {
+          @JavascriptInterface
+          public void onCheckoutCancel() {
+            sendEvent(reactContext, "bridgeCancel");
+          }
+
+          @JavascriptInterface
+          public void onSessionExpired() {
+            sendEvent(reactContext, "closeWebView");
+          }
+
+          @JavascriptInterface
+          public void onCheckoutComplete() {
+            sendEvent(reactContext, "bridgeComplete");
+          }
+        }, "quickprint");
+    }
+
+    private void sendEvent(ThemedReactContext reactContext, String eventName) {
+      reactContext
+        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+        .emit(eventName, true);
     }
 
     public void setCharset(String charset) {
